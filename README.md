@@ -154,6 +154,5 @@ By default, stale change-log entries are purged with:
 
 ## Related Docs
 
-- `DataAnalysisExpert/ARCHITECTURE.md`
-- `DataAnalysisExpert/dashboard_model_spec.md`
-- `DataAnalysisExpert/dashboard_blueprint.md`
+- `ARCHITECTURE.md`
+
