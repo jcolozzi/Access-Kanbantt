@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kanban Board</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0f1117;--surface:#1a1d2e;--card:#252840;--border:#2e3250;
+    --accent:#6c63ff;--text:#e2e8f0;--muted:#8892a4;--shadow:#0006;
+    --done:#10b981;
+  }
+  [data-theme="light"]{
+    --bg:#f0f2f5;--surface:#ffffff;--card:#f8f9fc;--border:#d1d5db;
+    --accent:#6c63ff;--text:#1e2029;--muted:#64748b;--shadow:#0001;
+  }
+  body{font-family:'Segoe UI',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;transition:background .2s,color .2s;display:flex;flex-direction:column}
+  header{display:flex;align-items:center;gap:12px;padding:8px 18px;background:var(--surface);border-bottom:1px solid var(--border);position:relative;z-index:100;transition:background .2s,border-color .2s;height:49px;flex-shrink:0}
+  header h1{font-size:1rem;font-weight:700;color:var(--accent);white-space:nowrap}
+  .hdr-left{display:flex;align-items:center;gap:8px;flex:1;min-width:0;overflow:hidden}
+  .hdr-right{display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:auto}
+  .board-tabs{display:flex;gap:6px;flex:1;overflow-x:auto;padding-bottom:2px}
+  .board-tab{padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:.8rem;white-space:nowrap;transition:.2s;display:flex;align-items:center;gap:6px}
+  .board-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .board-tab:hover:not(.active){border-color:var(--accent);color:var(--text)}
+  .tab-del{opacity:.5;font-size:.75rem;line-height:1;padding:0 2px}
+  .tab-del:hover{opacity:1}
+  .btn{padding:5px 12px;border-radius:8px;border:none;cursor:pointer;font-size:.82rem;font-weight:600;transition:.2s}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{opacity:.85}
+  .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}
+  .btn-ghost:hover{color:var(--text);border-color:var(--accent)}
+  .view-btn{padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:.8rem;font-weight:600;transition:.2s;flex-shrink:0}
+  .view-btn:hover{border-color:var(--accent);color:var(--text)}
+  .view-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .settings-btn{background:transparent;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:1rem;padding:3px 8px;line-height:1.4;transition:.2s;flex-shrink:0;color:var(--text)}
+  .settings-btn:hover{border-color:var(--accent)}
+  /* Dashboard board filter */
+  .dash-board-filter{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:4px 10px;color:var(--text);font-size:.78rem;outline:none;cursor:pointer;display:none}
+  .dash-board-filter.visible{display:inline-block}
+  .dash-board-filter option{background:var(--surface)}
+  /* Gantt-specific header controls */
+  .gantt-controls{display:none;align-items:center;gap:8px}
+  .gantt-controls.visible{display:flex}
+  .hbtn{background:var(--card);border:1px solid var(--border);border-radius:5px;padding:4px 10px;cursor:pointer;font-size:.82rem;color:var(--text);vertical-align:middle}
+  .hbtn:hover{border-color:var(--accent)}
+
+  .zoom-tabs{display:inline-flex;background:var(--bg);border-radius:7px;padding:2px;vertical-align:middle}
+  .zoom-tab{border:none;background:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:.78rem;font-weight:500;color:var(--muted)}
+  .zoom-tab.active{background:var(--surface);color:var(--accent);border:1px solid var(--border)}
+
+  /* Modal */
+  .modal-overlay{position:fixed;inset:0;background:#000b;display:flex;align-items:center;justify-content:center;z-index:999;opacity:0;pointer-events:none;transition:.18s}
+  .modal-overlay.open{opacity:1;pointer-events:all}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;width:460px;max-width:95vw;max-height:90vh;overflow-y:auto;transform:scale(.95);transition:.18s}
+  .modal-overlay.open .modal{transform:scale(1)}
+  .modal h2{font-size:.95rem;margin-bottom:14px}
+  .form-group{margin-bottom:11px}
+  .form-group label{display:block;font-size:.75rem;color:var(--muted);margin-bottom:3px}
+  .form-group input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:.83rem;outline:none;transition:.2s;font-family:inherit}
+  .form-group input:focus{border-color:var(--accent)}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+  select option{background:var(--surface)}
+  .form-group input[type="color"]{width:44px;height:32px;padding:2px;cursor:pointer}
+  /* Settings modal */
+  .settings-section{margin-bottom:16px}
+  .settings-section h3{font-size:.82rem;color:var(--accent);margin-bottom:8px;font-weight:600}
+  .theme-toggle{display:flex;gap:6px}
+  .theme-toggle button{flex:1;padding:7px 12px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:6px;cursor:pointer;transition:.2s;font-size:.8rem;font-weight:600}
+  .theme-toggle button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .theme-toggle button:hover:not(.active){border-color:var(--accent)}
+  .color-row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .color-row label{flex:1;font-size:.8rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .color-row input[type="color"]{width:40px;height:28px;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:2px;background:var(--bg)}
+  .board-colors-list{max-height:260px;overflow-y:auto}
+  .board-color-item{display:flex;align-items:center;gap:8px;padding:7px 8px;background:var(--bg);border-radius:6px;margin-bottom:5px}
+  .board-color-item input[type="text"]{flex:1;font-size:.8rem;color:var(--text);background:transparent;border:1px solid transparent;border-radius:4px;padding:3px 6px;outline:none;transition:.2s;font-family:inherit}
+  .board-color-item input[type="text"]:hover,.board-color-item input[type="text"]:focus{border-color:var(--border);background:var(--surface)}
+  .board-color-item input[type="color"]{width:36px;height:26px;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:2px;background:var(--bg)}
+  .board-color-item .board-del-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0 4px;line-height:1;transition:.2s;border-radius:4px}
+  .board-color-item .board-del-btn:hover{color:#ef4444}
+  .board-tab .tab-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+  /* Status bar */
+  .status-bar{padding:5px 18px;background:var(--surface);border-top:1px solid var(--border);font-size:.72rem;color:var(--muted);display:flex;gap:16px;z-index:90;flex-shrink:0}
+  .sdot{width:7px;height:7px;border-radius:50%;background:var(--done);display:inline-block;margin-right:4px;vertical-align:middle}
+  .sdot.err{background:#ef4444}
+  /* Content frame */
+  #contentFrame{flex:1;width:100%;border:none}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hdr-left">
+    <h1>📋 Access Kanbantt</h1>
+    <select class="dash-board-filter" id="dashBoardFilter" onchange="dashFilterBoard(this.value)">
+      <option value="all">All Boards</option>
+    </select>
+    <button class="btn btn-primary" id="btnAddBoard" onclick="openBoardModal()">+ Board</button>
+    <div class="board-tabs" id="boardTabs"></div>
+    <div class="gantt-controls" id="ganttControlsLeft">
+      <button class="btn btn-primary" id="btnAddTask" onclick="ganttAddTask()">+ Task</button>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div class="gantt-controls" id="ganttControlsRight">
+      <span>
+        <button class="hbtn" id="ganttPrev" onclick="ganttScrollPrev()">&#8249;</button>
+        <button class="hbtn" id="ganttToday" onclick="ganttScrollToday()" style="margin:0 2px;">Today</button>
+        <button class="hbtn" id="ganttNext" onclick="ganttScrollNext()">&#8250;</button>
+      </span>
+      <span class="zoom-tabs" id="zoomTabs">
+        <button class="zoom-tab active" data-zoom="day" onclick="ganttSetZoom('day')">Day</button>
+        <button class="zoom-tab" data-zoom="week" onclick="ganttSetZoom('week')">Week</button>
+        <button class="zoom-tab" data-zoom="month" onclick="ganttSetZoom('month')">Month</button>
+        <button class="zoom-tab" data-zoom="quarter" onclick="ganttSetZoom('quarter')">Quarter</button>
+      </span>
+    </div>
+    <button class="view-btn active" id="viewKanban" onclick="switchView('kanban')">Board</button>
+    <button class="view-btn" id="viewGantt" onclick="switchView('gantt')">Gantt</button>
+    <button class="view-btn" id="viewDash" onclick="switchView('dashboard')">Dashboard</button>
+    <button class="settings-btn" id="settingsBtn" onclick="openSettings()" title="Settings">⚙️</button>
+  </div>
+</header>
+
+<iframe id="contentFrame"></iframe>
+
+<div class="status-bar" id="statusBar">
+  <span><span class="sdot" id="sdot"></span><span id="stext">Ready</span></span>
+  <span id="taskCount"></span>
+</div>
+
+<!-- Board Modal -->
+<div class="modal-overlay" id="boardModal">
+  <div class="modal">
+    <h2>New Board</h2>
+    <div class="form-group"><label>Board Name *</label><input id="fBoardName" placeholder="e.g. Sprint 1"/></div>
+    <div class="form-group"><label>Board Color</label>
+      <div class="color-row"><input type="color" id="fBoardColor" value="#6c63ff"/></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('boardModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="createBoard()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal" style="width:500px">
+    <h2>⚙️ Settings</h2>
+    <div class="settings-section">
+      <h3>Appearance</h3>
+      <div class="theme-toggle">
+        <button id="themeLight" onclick="setThemeMode('light')">☀️ Light</button>
+        <button id="themeDark" onclick="setThemeMode('dark')">🌙 Dark</button>
+      </div>
+    </div>
+    <div class="settings-section">
+      <h3>Accent Color</h3>
+      <div class="color-row">
+        <label>Global accent color</label>
+        <input type="color" id="accentColorPicker" onchange="applyAccentColor(this.value)"/>
+      </div>
+    </div>
+    <div class="settings-section">
+      <h3>Boards</h3>
+      <div class="board-colors-list" id="boardColorsList"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="closeModal('settingsModal')">Done</button>
+    </div>
+  </div>
+</div>
+
+<script src="shared.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  index.html — ES6 class architecture
+// ═══════════════════════════════════════════════════════════════════
+
+// ── VbaBridge ─────────────────────────────────────────────
+class VbaBridge {
+  constructor() { this._pendingCommand = null; }
+
+  queue(arg) {
+    try { this._pendingCommand = arg || ''; return true; }
+    catch(e) { return false; }
+  }
+
+  getPendingCommand()       { return this._pendingCommand; }
+  clearPendingCommand()     { this._pendingCommand = null; }
+  setPendingCommand(cmd)    { this._pendingCommand = cmd; }
+}
+
+// ── ThemeManager ──────────────────────────────────────────
+class ThemeManager {
+  restore() {
+    let savedTheme = 'dark';
+    try { savedTheme = localStorage.getItem('kanbanTheme') || 'dark'; } catch(e){}
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    try {
+      const savedAccent = localStorage.getItem('accentColor');
+      if (savedAccent) document.documentElement.style.setProperty('--accent', savedAccent);
+    } catch(e){}
+  }
+
+  setMode(theme, frameWindow) {
+    document.documentElement.setAttribute('data-theme', theme);
+    try { localStorage.setItem('kanbanTheme', theme); } catch(e){}
+    this.updateButtons();
+    if (frameWindow && frameWindow.setTheme) frameWindow.setTheme(theme);
+  }
+
+  updateButtons() {
+    const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+    const el = document.getElementById('themeLight');
+    const ed = document.getElementById('themeDark');
+    if (el) el.classList.toggle('active', cur === 'light');
+    if (ed) ed.classList.toggle('active', cur === 'dark');
+  }
+
+  applyAccent(color, frameWindow) {
+    document.documentElement.style.setProperty('--accent', color);
+    try { localStorage.setItem('accentColor', color); } catch(e){}
+    if (frameWindow) {
+      try { frameWindow.document.documentElement.style.setProperty('--accent', color); } catch(e){}
+    }
+  }
+
+  getAccent() {
+    return getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#6c63ff';
+  }
+
+  syncToFrame(frameWindow) {
+    const theme = document.documentElement.getAttribute('data-theme') || 'dark';
+    if (frameWindow && frameWindow.setTheme) frameWindow.setTheme(theme);
+  }
+}
+
+// ── BoardManager ──────────────────────────────────────────
+class BoardManager {
+  constructor(boards) { this.boards = boards; }
+
+  add(name, color) {
+    const b = { id: 'b' + Date.now(), name, color: color || '#6c63ff' };
+    this.boards.push(b);
+    return b;
+  }
+
+  rename(boardId, newName) {
+    const board = this.boards.find(b => b.id === boardId);
+    if (board) board.name = newName;
+  }
+
+  updateColor(boardId, color) {
+    const board = this.boards.find(b => b.id === boardId);
+    if (board) board.color = color;
+  }
+
+  remove(boardId, tasks) {
+    const board = this.boards.find(b => b.id === boardId);
+    if (!board) return { boards: this.boards, tasks };
+    this.boards.splice(this.boards.indexOf(board), 1);
+    tasks = tasks.filter(t => String(t.boardId) !== String(boardId));
+    return { boards: this.boards, tasks };
+  }
+
+  renderTabs(activeBoardId, onSwitch, onDelete) {
+    document.getElementById('boardTabs').innerHTML = this.boards.map(b =>
+      `<button class="board-tab${b.id === activeBoardId ? ' active' : ''}"
+               data-id="${b.id}"
+               onclick="switchBoard('${b.id}')">
+          <span class="tab-dot" style="background:${b.color || '#6c63ff'}"></span>
+          ${esc(b.name)}
+          <span class="tab-del" onclick="event.stopPropagation();deleteBoard('${b.id}')">×</span>
+       </button>`
+    ).join('');
+  }
+
+  renderColorList(onRename, onColorChange, onDelete) {
+    document.getElementById('boardColorsList').innerHTML = this.boards.length
+      ? this.boards.map(b =>
+          `<div class="board-color-item">
+             <input type="text" value="${esc(b.name)}" onchange="renameBoard('${b.id}', this.value)" />
+             <input type="color" value="${b.color || '#6c63ff'}" onchange="updateBoardColor('${b.id}', this.value)"/>
+             <button class="board-del-btn" title="Delete board" onclick="deleteBoardFromSettings('${b.id}')">🗑</button>
+           </div>`
+        ).join('')
+      : '<div style="color:var(--muted);font-size:.78rem;padding:8px">No boards yet</div>';
+  }
+}
+
+// ── ViewManager ───────────────────────────────────────────
+class ViewManager {
+  constructor() {
+    this.currentView = 'kanban';
+    this._activeZoom = 'day';
+    this.kanbanLoaded = false;
+    this.ganttLoaded = false;
+    this.dashboardLoaded = false;
+    this._restoreZoom();
+  }
+
+  get frame() { return document.getElementById('contentFrame'); }
+  get frameWindow() { return this.frame && this.frame.contentWindow; }
+
+  switchTo(view, onFrameReady) {
+    if (view === this.currentView && this.frame.src) return;
+    this.currentView = view;
+    const btnK = document.getElementById('viewKanban');
+    const btnG = document.getElementById('viewGantt');
+    const btnD = document.getElementById('viewDash');
+    const tabs = document.getElementById('boardTabs');
+    const addBoardBtn = document.getElementById('btnAddBoard');
+    const ganttLeft = document.getElementById('ganttControlsLeft');
+    const ganttRight = document.getElementById('ganttControlsRight');
+
+    btnK.classList.toggle('active', view === 'kanban');
+    btnG.classList.toggle('active', view === 'gantt');
+    btnD.classList.toggle('active', view === 'dashboard');
+    tabs.style.display = view === 'kanban' ? 'flex' : 'none';
+    addBoardBtn.style.display = view === 'kanban' ? '' : 'none';
+    ganttLeft.classList.toggle('visible', view === 'gantt');
+    ganttRight.classList.toggle('visible', view === 'gantt');
+    document.getElementById('dashBoardFilter').classList.toggle('visible', view === 'dashboard');
+
+    if (view === 'gantt') {
+      this.frame.src = 'gantt.html';
+      this.frame.onload = () => {
+        this.ganttLoaded = true;
+        requestAnimationFrame(() => { onFrameReady(); this.syncZoomUI(); });
+      };
+    } else if (view === 'dashboard') {
+      this.frame.src = 'dashboard.html';
+      this.frame.onload = () => {
+        this.dashboardLoaded = true;
+        requestAnimationFrame(() => onFrameReady());
+      };
+    } else {
+      this.frame.src = 'kanban.html';
+      this.frame.onload = () => {
+        this.kanbanLoaded = true;
+        requestAnimationFrame(() => onFrameReady());
+      };
+    }
+  }
+
+  sendData(json, boards, tasks, activeBoardId, themeManager) {
+    if (!this.frameWindow) return;
+    if (!json) json = JSON.stringify({ boards, tasks });
+    try {
+      if (this.frameWindow.loadData) this.frameWindow.loadData(json);
+      if (this.currentView === 'kanban' && this.frameWindow.switchBoard && activeBoardId) {
+        this.frameWindow.switchBoard(activeBoardId);
+      }
+      themeManager.syncToFrame(this.frameWindow);
+    } catch(e) {}
+  }
+
+  ganttAddTask() {
+    if (this.frameWindow && this.frameWindow.openModal) this.frameWindow.openModal(null);
+  }
+
+  ganttScrollPrev() {
+    if (this.frameWindow && this.frameWindow.scrollPrev) this.frameWindow.scrollPrev();
+  }
+
+  ganttScrollNext() {
+    if (this.frameWindow && this.frameWindow.scrollNext) this.frameWindow.scrollNext();
+  }
+
+  ganttScrollToday() {
+    if (this.frameWindow && this.frameWindow.scrollToday) this.frameWindow.scrollToday();
+  }
+
+  ganttSetZoom(z) {
+    this._activeZoom = z;
+    document.querySelectorAll('#zoomTabs .zoom-tab').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-zoom') === z);
+    });
+    try { localStorage.setItem('ganttZoom', z); } catch(e){}
+    if (this.frameWindow && this.frameWindow.setZoom) this.frameWindow.setZoom(z);
+  }
+
+  syncZoomUI() {
+    document.querySelectorAll('#zoomTabs .zoom-tab').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-zoom') === this._activeZoom);
+    });
+  }
+
+  _restoreZoom() {
+    try {
+      const z = localStorage.getItem('ganttZoom');
+      if (z && ['day','week','month','quarter'].indexOf(z) >= 0) this._activeZoom = z;
+    } catch(e){}
+  }
+}
+
+// ── App ───────────────────────────────────────────────────
+class App {
+  constructor() {
+    this.boards = [];
+    this.tasks = [];
+    this.activeBoardId = null;
+    this._lastJson = null;
+
+    this.vba = new VbaBridge();
+    this.theme = new ThemeManager();
+    this.boardMgr = new BoardManager(this.boards);
+    this.view = new ViewManager();
+
+    this.theme.restore();
+    this._exposeGlobals();
+    this._initModals();
+
+    this.boardMgr.renderTabs(this.activeBoardId);
+    this.updateCount();
+    this.setStatus('Ready — awaiting Access data');
+
+    this.view.currentView = ''; // Allow switchView to proceed on first call
+    this.view.switchTo('kanban', () => this._onFrameReady());
+
+    setTimeout(() => this.vba.queue('OnKanbanReady'), 400);
+  }
+
+  loadData(json) {
+    try {
+      const d = JSON.parse(json);
+      this.boards.length = 0;
+      d.boards.forEach(b => this.boards.push(b));
+      this.tasks = d.tasks || [];
+      this._lastJson = json;
+      this.boards.forEach(b => { if (!b.color) b.color = '#6c63ff'; });
+      if (this.activeBoardId) {
+        const exists = this.boards.some(b => String(b.id) === String(this.activeBoardId));
+        if (!exists) this.activeBoardId = this.boards.length ? this.boards[0].id : null;
+      } else {
+        this.activeBoardId = this.boards.length ? this.boards[0].id : null;
+      }
+      this.boardMgr.renderTabs(this.activeBoardId);
+      this.updateCount();
+      this.setStatus('Data loaded ✓');
+      this.view.sendData(json, this.boards, this.tasks, this.activeBoardId, this.theme);
+    } catch(e) { this.setStatus('Load error: ' + e.message, true); }
+  }
+
+  persist(action, payload) {
+    const ok = this.vba.queue(JSON.stringify({ action, payload }));
+    this.setStatus(ok ? 'Saved ✓' : 'Demo mode – no Access connection', !ok);
+    this.updateCount();
+  }
+
+  setStatus(msg, err) {
+    document.getElementById('stext').textContent = msg;
+    document.getElementById('sdot').className = 'sdot' + (err ? ' err' : '');
+  }
+
+  switchBoard(id) {
+    this.activeBoardId = id;
+    this.boardMgr.renderTabs(this.activeBoardId);
+    this.updateCount();
+    if (this.view.currentView === 'kanban' && this.view.frameWindow && this.view.frameWindow.switchBoard) {
+      this.view.frameWindow.switchBoard(id);
+    }
+    this.vba.queue(JSON.stringify({ action: 'setActiveBoard', boardId: String(id) }));
+  }
+
+  updateCount() {
+    if (this.view.currentView === 'kanban') {
+      const n = this.activeBoardId ? this.tasks.filter(t => String(t.boardId) === String(this.activeBoardId) && !t.parentId).length : 0;
+      document.getElementById('taskCount').textContent = this.activeBoardId ? `${n} task${n !== 1 ? 's' : ''} on this board` : '';
+    } else {
+      const nBoards = this.boards.length;
+      const nTasks = this.tasks.filter(t => !t.parentId).length;
+      document.getElementById('taskCount').textContent = `${nBoards} board${nBoards !== 1 ? 's' : ''} · ${nTasks} task${nTasks !== 1 ? 's' : ''}`;
+    }
+  }
+
+  // ── Board CRUD (called from onclick handlers) ──────────
+  openBoardModal() {
+    document.getElementById('fBoardName').value = '';
+    document.getElementById('fBoardColor').value = this.theme.getAccent();
+    openModal('boardModal');
+  }
+
+  createBoard() {
+    const name = document.getElementById('fBoardName').value.trim();
+    if (!name) return alert('Board name is required.');
+    const color = document.getElementById('fBoardColor').value || '#6c63ff';
+    const b = this.boardMgr.add(name, color);
+    this.activeBoardId = b.id;
+    closeModal('boardModal');
+    this.boardMgr.renderTabs(this.activeBoardId);
+    this.updateCount();
+    this.view.sendData(null, this.boards, this.tasks, this.activeBoardId, this.theme);
+    this.persist('addBoard', b);
+  }
+
+  deleteBoard(id) {
+    if (!confirm('Delete this board and all its tasks?')) return;
+    const result = this.boardMgr.remove(id, this.tasks);
+    this.tasks = result.tasks;
+    if (String(this.activeBoardId) === String(id)) {
+      this.activeBoardId = this.boards.length ? this.boards[0].id : null;
+    }
+    this.boardMgr.renderTabs(this.activeBoardId);
+    this.updateCount();
+    this.view.sendData(null, this.boards, this.tasks, this.activeBoardId, this.theme);
+    this.persist('deleteBoard', { id });
+  }
+
+  renameBoard(boardId, newName) {
+    newName = newName.trim();
+    if (!newName) return;
+    this.boardMgr.rename(boardId, newName);
+    this.boardMgr.renderTabs(this.activeBoardId);
+    this.view.sendData(null, this.boards, this.tasks, this.activeBoardId, this.theme);
+    this.persist('renameBoard', { id: boardId, name: newName });
+  }
+
+  updateBoardColor(boardId, color) {
+    this.boardMgr.updateColor(boardId, color);
+    this.boardMgr.renderTabs(this.activeBoardId);
+    this.view.sendData(null, this.boards, this.tasks, this.activeBoardId, this.theme);
+    const board = this.boards.find(b => b.id === boardId);
+    if (board) this.persist('updateBoard', board);
+  }
+
+  deleteBoardFromSettings(boardId) {
+    const board = this.boards.find(b => b.id === boardId);
+    if (!board) return;
+    if (!confirm('Delete "' + board.name + '" and all its tasks?')) return;
+    const result = this.boardMgr.remove(boardId, this.tasks);
+    this.tasks = result.tasks;
+    if (String(this.activeBoardId) === String(boardId)) {
+      this.activeBoardId = this.boards.length ? this.boards[0].id : null;
+    }
+    this.boardMgr.renderTabs(this.activeBoardId);
+    this.boardMgr.renderColorList();
+    this.updateCount();
+    this.view.sendData(null, this.boards, this.tasks, this.activeBoardId, this.theme);
+    this.persist('deleteBoard', { id: boardId });
+  }
+
+  // ── Settings ───────────────────────────────────────────
+  openSettings() {
+    this.theme.updateButtons();
+    document.getElementById('accentColorPicker').value = this.theme.getAccent();
+    this.boardMgr.renderColorList();
+    openModal('settingsModal');
+  }
+
+  dashFilterBoard(val) {
+    if (this.view.currentView === 'dashboard' && this.view.frameWindow && this.view.frameWindow.filterBoard) {
+      this.view.frameWindow.filterBoard(val);
+    }
+  }
+
+  // ── Internal ───────────────────────────────────────────
+  _onFrameReady() {
+    this.view.sendData(this._lastJson, this.boards, this.tasks, this.activeBoardId, this.theme);
+    if (this.view.currentView === 'dashboard') this._populateDashFilter();
+    this.updateCount();
+  }
+
+  _populateDashFilter() {
+    const sel = document.getElementById('dashBoardFilter');
+    if (!sel) return;
+    const active = this.boards.filter(b => !b.IsDeleted);
+    const cur = sel.value || 'all';
+    sel.innerHTML = '<option value="all">All Boards</option>' +
+      active.map(b => '<option value="' + esc(String(b.id)) + '"' +
+        (String(b.id) === String(cur) ? ' selected' : '') + '>' +
+        esc(b.name) + '</option>'
+      ).join('');
+  }
+
+  _initModals() {
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+      el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+    });
+  }
+
+  _exposeGlobals() {
+    const app = this;
+    // VBA bridge (called from iframes + VBA)
+    window.loadData             = json => app.loadData(json);
+    window.persist              = (a, p) => app.persist(a, p);
+    window.setStatus            = (m, e) => app.setStatus(m, e);
+    window.getPendingCommand    = () => app.vba.getPendingCommand();
+    window.clearPendingCommand  = () => app.vba.clearPendingCommand();
+    window.setPendingCommand    = cmd => app.vba.setPendingCommand(cmd);
+    // Board actions (called from onclick handlers)
+    window.openBoardModal       = () => app.openBoardModal();
+    window.createBoard          = () => app.createBoard();
+    window.switchBoard          = id => app.switchBoard(id);
+    window.deleteBoard          = id => app.deleteBoard(id);
+    window.renameBoard          = (id, n) => app.renameBoard(id, n);
+    window.updateBoardColor     = (id, c) => app.updateBoardColor(id, c);
+    window.deleteBoardFromSettings = id => app.deleteBoardFromSettings(id);
+    // View switching + gantt delegation
+    window.switchView           = v => { app.view.switchTo(v, () => app._onFrameReady()); app.updateCount(); };
+    window.ganttAddTask         = () => app.view.ganttAddTask();
+    window.ganttScrollPrev      = () => app.view.ganttScrollPrev();
+    window.ganttScrollNext      = () => app.view.ganttScrollNext();
+    window.ganttScrollToday     = () => app.view.ganttScrollToday();
+    window.ganttSetZoom         = z => app.view.ganttSetZoom(z);
+    // Theme + settings
+    window.setThemeMode         = t => app.theme.setMode(t, app.view.frameWindow);
+    window.applyAccentColor     = c => app.theme.applyAccent(c, app.view.frameWindow);
+    window.openSettings         = () => app.openSettings();
+    // Dashboard board filter
+    window.dashFilterBoard      = val => app.dashFilterBoard(val);
+    // ── PubSub merge (called by VBA bridge) ──────────────
+    window.mergeTaskChanges = json => {
+      try {
+        const changes = typeof json === 'string' ? JSON.parse(json) : json;
+        if (!Array.isArray(changes) || !changes.length) return;
+        // Update parent tasks[] array
+        for (const ch of changes) {
+          const id = ch.data ? ch.data.id : ch.id;
+          if (ch.action === 'delete') {
+            app.tasks = app.tasks.filter(t => t.id !== id && String(t.parentId) !== String(id));
+          } else if ((ch.action === 'add' || ch.action === 'update') && ch.data) {
+            const idx = app.tasks.findIndex(t => t.id === ch.data.id || String(t.id) === String(ch.data.id));
+            if (idx >= 0) { app.tasks[idx] = ch.data; } else { app.tasks.push(ch.data); }
+          }
+        }
+        app.updateCount();
+        // Forward to iframe
+        if (app.view.frameWindow && app.view.frameWindow.mergeTaskChanges) {
+          app.view.frameWindow.mergeTaskChanges(changes);
+        }
+      } catch(e) { console.error('mergeTaskChanges error:', e); }
+    };
+
+    window.mergeBoardChanges = json => {
+      try {
+        const changes = typeof json === 'string' ? JSON.parse(json) : json;
+        if (!Array.isArray(changes) || !changes.length) return;
+        for (const ch of changes) {
+          const id = ch.data ? ch.data.id : ch.id;
+          if (ch.action === 'delete') {
+            const delIdx = app.boards.findIndex(b => b.id === id || String(b.id) === String(id));
+            if (delIdx >= 0) app.boards.splice(delIdx, 1);
+            if (String(app.activeBoardId) === String(id)) {
+              app.activeBoardId = app.boards.length ? app.boards[0].id : null;
+            }
+          } else if (ch.action === 'add' && ch.data) {
+            if (!app.boards.find(b => b.id === ch.data.id || String(b.id) === String(ch.data.id))) {
+              app.boards.push(ch.data);
+            }
+          } else if (ch.action === 'update' && ch.data) {
+            const idx = app.boards.findIndex(b => b.id === ch.data.id || String(b.id) === String(ch.data.id));
+            if (idx >= 0) { Object.assign(app.boards[idx], ch.data); }
+          }
+        }
+        app.boardMgr.renderTabs(app.activeBoardId);
+        app.updateCount();
+        // Forward to iframe
+        if (app.view.frameWindow && app.view.frameWindow.mergeBoardChanges) {
+          app.view.frameWindow.mergeBoardChanges(changes);
+        }
+        // If active board was deleted, do a full data push to iframe
+        const deletedActiveBoard = changes.some(ch => ch.action === 'delete' && (String(ch.id) === String(app.activeBoardId) || (ch.data && String(ch.data.id) === String(app.activeBoardId))));
+        if (deletedActiveBoard && app._lastJson) {
+          app.view.sendData(app._lastJson, app.boards, app.tasks, app.activeBoardId, app.theme);
+        }
+      } catch(e) { console.error('mergeBoardChanges error:', e); }
+    };
+
+    window.setSyncStatus = connected => {
+      const dot = document.getElementById('sdot');
+      if (dot) dot.className = 'sdot' + (connected ? '' : ' err');
+      const txt = document.getElementById('stext');
+      if (txt && !connected) txt.textContent = 'Sync disconnected';
+    };
+  }
+}
+
+// ── Bootstrap ─────────────────────────────────────────────
+const app = new App();
+</script>
+</body>
+</html>

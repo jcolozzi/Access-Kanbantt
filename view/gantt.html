@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Gantt Chart</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── LIGHT MODE ─────────────────────────────────────────── */
+body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; background: #f0f2f5; color: #1a1a2e; overflow: hidden; }
+html, body { height: 100%; }
+
+/* HEADER */
+#header { background: #ffffff; border-bottom: 1px solid #e0e0e0; padding: 8px 14px; white-space: nowrap; overflow: hidden; height: 46px; position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; }
+#hdr-left { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+#hdr-right { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-shrink: 0; }
+#header h1 { font-size: 1.1rem; font-weight: 700; color: #4f46e5; display: inline; margin-right: 6px; }
+.hbtn { background: #fff; border: 1px solid #ddd; border-radius: 5px; padding: 4px 10px; cursor: pointer; font-size: 0.82rem; color: #1a1a2e; vertical-align: middle; }
+.hbtn:hover { background: #f0f2f5; }
+.hbtn-primary { background: #4f46e5; color: #fff; border: none; border-radius: 5px; padding: 4px 12px; cursor: pointer; font-size: 0.82rem; font-weight: 600; vertical-align: middle; }
+.hbtn-primary:hover { background: #4338ca; }
+.zoom-tabs { display: inline-block; background: #f0f2f5; border-radius: 7px; padding: 2px; margin-left: 6px; vertical-align: middle; }
+.zoom-tab { border: none; background: none; padding: 4px 10px; border-radius: 5px; cursor: pointer; font-size: 0.78rem; font-weight: 500; color: #888; }
+.zoom-tab.active { background: #ffffff; color: #4f46e5; border: 1px solid #e0e0e0; }
+#status-bar { font-size: 0.72rem; padding: 2px 7px; border-radius: 4px; font-weight: 600; display: inline-block; vertical-align: middle; margin-left: 8px; }
+#status-bar.status-idle    { background: #f0fdf4; color: #16a34a; }
+#status-bar.status-pending { background: #fef9c3; color: #a16207; }
+#status-bar.status-error   { background: #fee2e2; color: #dc2626; }
+
+/* LAYOUT */
+#main { position: absolute; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; }
+#left-pane  { position: absolute; top: 0; left: 0; bottom: 0; width: 480px; border-right: 2px solid #4f46e5; background: #fff; overflow: hidden; }
+#left-inner { position: absolute; top: 0; left: 0; right: 0; bottom: 0; overflow-y: scroll; overflow-x: hidden; }
+#right-pane { position: absolute; top: 0; left: 482px; right: 0; bottom: 0; background: #f8f8ff; overflow: hidden; }
+#gantt-hdr  { position: absolute; top: 0; left: 0; right: 0; height: 44px; overflow: hidden; z-index: 5; }
+#right-inner{ position: absolute; top: 44px; left: 0; right: 0; bottom: 0; overflow: scroll; }
+#resize-hdl { position: absolute; top: 0; bottom: 0; left: 474px; width: 16px; cursor: col-resize; z-index: 60; background: transparent; }
+#resize-hdl:hover { background: #4f46e518; }
+#resize-grip { position: absolute; top: 50%; left: 4px; margin-top: -24px; width: 8px; height: 48px; border-left: 2px dotted #b0b0cc; border-right: 2px dotted #b0b0cc; }
+
+/* TABLE */
+#task-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+#task-table thead th { background: #f8f8ff; border-bottom: 2px solid #e0e0e0; padding: 0 6px; text-align: left; font-size: 0.70rem; font-weight: 700; color: #888; text-transform: uppercase; white-space: nowrap; position: sticky; top: 0; z-index: 4; }
+#task-table thead tr:first-child th { height: 24px; border-bottom: 1px solid #e8e8f0; vertical-align: middle; }
+#task-table thead tr:last-child  th { height: 20px; border-bottom: 2px solid #e0e0e0; vertical-align: middle; font-size: 0; }
+#task-table tbody tr { border-bottom: 1px solid #f0f0f0; cursor: pointer; }
+#task-table tbody tr:hover { background: #f0f0ff; }
+#task-table tbody tr.sel-row { background: #eef0ff; }
+#task-table tbody td { padding: 5px 6px; vertical-align: middle; }
+.td-name  { font-weight: 600; color: #1a1a2e; }
+.td-date  { color: #666; white-space: nowrap; font-size: 0.72rem; }
+.td-pct   { color: #4f46e5; font-weight: 700; white-space: nowrap; }
+.td-days  { color: #555; white-space: nowrap; font-size: 0.72rem; text-align: right; }
+.td-act   { white-space: nowrap; text-align: right; }
+.tbl-btn  { border: none; background: none; cursor: pointer; font-size: 0.80rem; color: #aaa; padding: 2px 3px; border-radius: 3px; }
+.tbl-btn:hover { background: #e0e0ff; color: #4f46e5; }
+.cdot     { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+.xarrow   { font-size: 0.63rem; margin-right: 2px; cursor: pointer; color: #888; display: inline-block; width: 11px; }
+/* Status badges */
+.sbadge { display: inline-block; font-size: 0.62rem; font-weight: 700; padding: 1px 5px; border-radius: 3px; white-space: nowrap; }
+.sb-done     { background: #dcfce7; color: #15803d; }
+.sb-overdue  { background: #fee2e2; color: #dc2626; }
+.sb-late     { background: #fff7ed; color: #c2410c; }
+.sb-progress { background: #eff6ff; color: #2563eb; }
+.sb-upcoming { background: #f3f4f6; color: #6b7280; }
+body.dark .td-days { color: #9090b0; }
+body.dark .sb-done     { background: #14532d; color: #86efac; }
+body.dark .sb-overdue  { background: #450a0a; color: #fca5a5; }
+body.dark .sb-late     { background: #431407; color: #fdba74; }
+body.dark .sb-progress { background: #1e3a5f; color: #93c5fd; }
+body.dark .sb-upcoming { background: #1f2937; color: #9ca3af; }
+
+/* GANTT HEADER */
+#gantt-hdr { background: #f8f8ff; border-bottom: 2px solid #e0e0e0; height: 44px; }
+#gantt-hdr table { border-collapse: collapse; table-layout: fixed; }
+#gantt-hdr table tr:first-child th { height: 24px; border-right: 1px solid #e8e8f0; padding: 0; text-align: center; font-size: 0.74rem; font-weight: 700; color: #4f46e5; border-bottom: 1px solid #e8e8f0; white-space: nowrap; overflow: hidden; }
+#gantt-hdr table tr:last-child  th { height: 20px; border-right: 1px solid #e8e8f0; padding: 0; text-align: center; font-size: 0.67rem; font-weight: 700; color: #888; white-space: nowrap; overflow: hidden; }
+.mth-th { font-size: 0.74rem !important; font-weight: 700 !important; color: #4f46e5 !important; border-right: 1px solid #c8c8e8 !important; }
+
+/* GANTT BODY */
+#gantt-body { position: relative; }
+#gantt-body table { border-collapse: collapse; table-layout: fixed; }
+#gantt-body td { border-right: 1px solid #f0f0f0; border-bottom: 1px solid #f0f0f4; height: 34px; padding: 0; }
+.wknd  { background: #f5f5fc; }
+.tdcol { background: #eaeeff; }
+
+/* BARS */
+.gbar-wrap { position: absolute; }
+.gbar { position: absolute; border-radius: 4px; cursor: move; overflow: hidden; }
+.gbar-lbl  { position: absolute; top: 0; left: 0; right: 18px; bottom: 0; padding: 0 5px; font-size: 0.66rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 22px; }
+.gbar-pct  { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px 0 0 4px; }
+.rhl { position: absolute; top: 2px; bottom: 2px; left: 2px;  width: 7px; background: #ffffff55; border-radius: 3px; cursor: e-resize; z-index: 5; }
+.rhr { position: absolute; top: 2px; bottom: 2px; right: 2px; width: 7px; background: #ffffff55; border-radius: 3px; cursor: e-resize; z-index: 5; }
+.ms-wrap { position: absolute; width: 20px; height: 20px; cursor: pointer; z-index: 5; }
+.ms-inner{ width: 16px; height: 16px; border-radius: 2px; margin: 2px; transform: rotate(45deg); box-sizing: border-box; }
+.grp-tab-l { position: absolute; bottom: -5px; left: 0;  width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid; }
+.grp-tab-r { position: absolute; bottom: -5px; right: 0; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid; }
+.tdline { position: absolute; top: 0; width: 2px; background: #ef4444; z-index: 20; }
+.tdot   { position: absolute; top: -3px; left: -5px; width: 12px; height: 12px; background: #ef4444; border-radius: 50%; }
+
+/* MODAL */
+#modal-ov  { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.45); z-index: 200; display: none; }
+#modal-box { position: fixed; top: 8%; left: 50%; width: 490px; margin-left: -245px; background: #fff; border-radius: 12px; padding: 16px 20px 14px; border: 1px solid #ddd; box-shadow: 0 12px 40px rgba(0,0,0,.2); }
+#modal-box h2 { margin-bottom: 10px; font-size: 0.98rem; color: #1a1a2e; }
+.mlbl  { display: block; font-size: 0.70rem; font-weight: 700; color: #888; margin-top: 8px; margin-bottom: 2px; text-transform: uppercase; }
+.minp  { width: 100%; border: 1px solid #ddd; border-radius: 6px; padding: 5px 8px; font-size: 0.83rem; font-family: inherit; background: #f8f8ff; color: #1a1a2e; }
+.msel  { width: 100%; border: 1px solid #ddd; border-radius: 6px; padding: 4px 8px; font-size: 0.83rem; font-family: inherit; background: #f8f8ff; color: #1a1a2e; }
+.mta   { width: 100%; border: 1px solid #ddd; border-radius: 6px; padding: 5px 8px; font-size: 0.83rem; font-family: inherit; background: #f8f8ff; color: #1a1a2e; height: 40px; }
+.mrow  { overflow: hidden; }
+.mcl   { float: left;  width: 48%; }
+.mcr   { float: right; width: 48%; }
+.macts { overflow: hidden; margin-top: 12px; }
+.macts button { float: left; width: 31%; margin-right: 3%; padding: 7px 0; border-radius: 6px; border: none; cursor: pointer; font-size: 0.83rem; font-weight: 600; }
+.macts button:last-child { margin-right: 0; }
+.btn-save   { background: #4f46e5; color: #fff; }
+.btn-cancel { background: #f0f0f0; color: #555; }
+.btn-delete { background: #fee2e2; color: #dc2626; }
+.cswatch { display: inline-block; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; margin-right: 3px; vertical-align: middle; }
+.cswatch.on { border-color: #1a1a2e; }
+
+/* TOOLTIP */
+#gtip { position: fixed; background: #1a1a2e; color: #fff; font-size: 0.71rem; padding: 5px 9px; border-radius: 6px; z-index: 999; display: none; }
+
+/* ── DARK MODE ───────────────────────────────────────────── */
+body.dark { background: #0f1117; color: #e4e6f0; }
+body.dark #header { background: #161926; border-bottom-color: #2e3250; }
+body.dark #header h1 { color: #7c74f5; }
+body.dark .hbtn { background: #1e2130; border-color: #3a3e60; color: #e4e6f0; }
+body.dark .hbtn-primary { background: #7c74f5; }
+body.dark .zoom-tabs { background: #252840; }
+body.dark .zoom-tab { color: #8888aa; }
+body.dark .zoom-tab.active { background: #1e2130; color: #7c74f5; border-color: #3a3e60; }
+body.dark #left-pane  { background: #161926; border-right-color: #7c74f5; }
+body.dark #resize-grip { border-color: #5a54a0; }
+body.dark #right-pane { background: #0f1117; }
+body.dark #task-table thead th { background: #1a1e30; color: #8888aa; }
+body.dark #task-table thead tr:first-child th { border-bottom-color: #2e3250; }
+body.dark #task-table thead tr:last-child  th { border-bottom-color: #2e3250; }
+body.dark #task-table tbody tr { border-bottom-color: #252840; }
+body.dark #task-table tbody tr:hover { background: #1a1e38; }
+body.dark #task-table tbody tr.sel-row { background: #1e2240; }
+body.dark .td-name { color: #e4e6f0; }
+body.dark .td-date { color: #8888aa; }
+body.dark .td-pct  { color: #7c74f5; }
+body.dark .tbl-btn:hover { background: #252840; color: #7c74f5; }
+body.dark #gantt-hdr { background: #1a1e30; border-bottom-color: #2e3250; }
+body.dark #gantt-hdr table tr:first-child th { color: #7c74f5; border-right-color: #2e3250; border-bottom-color: #2e3250; }
+body.dark #gantt-hdr table tr:last-child  th { color: #8888aa; border-right-color: #2e3250; }
+body.dark .mth-th { color: #7c74f5 !important; border-right-color: #2e3250 !important; }
+body.dark #gantt-body td { border-right-color: #1e2230; border-bottom-color: #1e2230; }
+body.dark .wknd { background: #141620; }
+body.dark .tdcol { background: #1e2040; }
+body.dark #modal-ov  { background: #000000bb; }
+body.dark #modal-box { background: #1e2130; border-color: #2e3250; }
+body.dark #modal-box h2 { color: #e4e6f0; }
+body.dark .mlbl { color: #8888aa; }
+body.dark .minp, body.dark .msel, body.dark .mta { background: #161926; border-color: #3a3e60; color: #e4e6f0; }
+body.dark .btn-cancel { background: #252840; color: #aaa; }
+body.dark .btn-delete { background: #2a1010; color: #f87171; }
+body.dark .cswatch.on { border-color: #e4e6f0; }
+body.dark #gtip { background: #2e3250; }
+body.dark .tdline { background: #f87171; }
+body.dark .tdot   { background: #f87171; }
+</style>
+</head>
+<body>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="left-pane">
+    <div id="left-inner">
+      <table id="task-table">
+        <thead>
+          <tr>
+            <th style="width:26%">Task</th>
+            <th style="width:13%">Start</th>
+            <th style="width:13%">End</th>
+            <th style="width:8%">%</th>
+            <th style="width:9%">Days</th>
+            <th style="width:13%">Status</th>
+            <th style="width:18%"></th>
+          </tr>
+          <tr><th colspan="7" style="width:100%"></th></tr>
+        </thead>
+        <tbody id="task-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div id="resize-hdl"><div id="resize-grip"></div></div>
+  <div id="right-pane">
+    <div id="gantt-hdr"></div>
+    <div id="right-inner">
+      <div id="gantt-body"></div>
+    </div>
+  </div>
+
+  <!-- MODAL -->
+  <div id="modal-ov">
+    <div id="modal-box">
+      <h2 id="modal-title">New Task</h2>
+      <span class="mlbl">Task Name</span>
+      <input type="text" id="m-name" class="minp" />
+      <div class="mrow">
+        <div class="mcl">
+          <span class="mlbl">Board</span>
+          <select id="m-board" class="msel"></select>
+        </div>
+        <div class="mcr">
+          <span class="mlbl">Status</span>
+          <select id="m-status" class="msel"></select>
+        </div>
+      </div>
+      <div class="mrow">
+        <div class="mcl">
+          <span class="mlbl">Start</span>
+          <input type="date" id="m-start" class="minp" />
+        </div>
+        <div class="mcr">
+          <span class="mlbl">End</span>
+          <input type="date" id="m-end" class="minp" />
+        </div>
+      </div>
+      <div class="mrow">
+        <div class="mcl">
+          <span class="mlbl">% Complete</span>
+          <input type="number" id="m-pct" class="minp" min="0" max="100" />
+        </div>
+        <div class="mcr">
+          <span class="mlbl">Priority</span>
+          <select id="m-priority" class="msel">
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+          </select>
+        </div>
+      </div>
+      <div class="mrow">
+        <div class="mcl">
+          <span class="mlbl">Parent</span>
+          <select id="m-parent" class="msel"></select>
+        </div>
+        <div class="mcr">
+          <span class="mlbl">Color</span>
+          <div id="m-colors" style="margin-top:5px;"></div>
+        </div>
+      </div>
+      <span class="mlbl">Notes</span>
+      <textarea id="m-notes" class="mta"></textarea>
+      <div class="macts">
+        <button class="btn-cancel" id="m-cancel">Cancel</button>
+        <button class="btn-delete" id="m-delete" style="display:none">Delete</button>
+        <button class="btn-save" id="m-save">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOOLTIP -->
+<div id="gtip"></div>
+
+<script src="shared.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  gantt.html — ES6 class architecture
+// ═══════════════════════════════════════════════════════════════════
+
+const COLORS = ['#4f46e5','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1'];
+const CW = { day: 28, week: 26, month: 14, quarter: 8 };
+const NS = { day: 7, week: 14, month: 30, quarter: 90 };
+const MABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const STATUS_COLS = [
+  { id:'backlog', label:'Backlog' },
+  { id:'todo',    label:'To Do' },
+  { id:'inprog',  label:'In Progress' },
+  { id:'review',  label:'Review' },
+  { id:'done',    label:'Done' }
+];
+const ROW_H = 34;
+function htmlEsc(s) { return esc(s); }
+
+// ── GanttModel ────────────────────────────────────────────
+class GanttModel {
+  constructor() {
+    this._boards = [];
+    this._rawTasks = [];
+    this.tasks = [];
+  }
+
+  load(boards, rawTasks) {
+    this._boards = boards;
+    this._rawTasks = rawTasks;
+  }
+
+  build() {
+    const today = fmtDate(new Date());
+    this.tasks = [];
+
+    for (const b of this._boards) {
+      const boardRaw = this._rawTasks.filter(t => String(t.boardId) === String(b.id));
+      const topLevel = boardRaw.filter(t => !t.parentId);
+
+      let minStart = null, maxEnd = null, totalPct = 0, count = 0;
+      for (const t of topLevel) {
+        if (t.startDate && (!minStart || t.startDate < minStart)) minStart = t.startDate;
+        if (t.endDate && (!maxEnd || t.endDate > maxEnd)) maxEnd = t.endDate;
+        totalPct += (t.pctComplete || 0);
+        count++;
+      }
+
+      this.tasks.push({
+        id: 'b-' + b.id, name: b.name,
+        start: minStart || today, end: maxEnd || today,
+        pct: count ? Math.round(totalPct / count) : 0,
+        color: b.color || '#4f46e5', type: 'group', parent: 0,
+        expanded: true, notes: '',
+        _isBoard: true, _boardId: String(b.id)
+      });
+
+      topLevel.sort((a, b2) => (a.sortOrder || 0) - (b2.sortOrder || 0));
+
+      for (const t of topLevel) {
+        const children = this._rawTasks.filter(c => String(c.parentId) === String(t.id));
+        children.sort((a, b2) => (a.sortOrder || 0) - (b2.sortOrder || 0));
+
+        let tType = 'task';
+        if (children.length > 0) tType = 'group';
+        else if (t.startDate && t.endDate && t.startDate === t.endDate) tType = 'milestone';
+
+        let pct = t.pctComplete || 0;
+        if (children.length > 0) {
+          const sum = children.reduce((s, c) => s + (c.pctComplete || 0), 0);
+          pct = Math.round(sum / children.length);
+        }
+
+        this.tasks.push({
+          id: String(t.id), name: t.title || '(Untitled)',
+          start: t.startDate || today, end: t.endDate || today,
+          pct, color: t.taskColor || '#4f46e5', type: tType,
+          parent: 'b-' + b.id, expanded: t.isExpanded !== false,
+          notes: t.notes || '',
+          _isBoard: false, _boardId: String(b.id),
+          _status: t.status || 'todo', _priority: t.priority || 'Medium',
+          _taskType: t.taskType || '', _desc: t.desc || '',
+          _parentId: '', _sortOrder: t.sortOrder || 0
+        });
+
+        for (const c of children) {
+          let cType = 'task';
+          if (c.startDate && c.endDate && c.startDate === c.endDate) cType = 'milestone';
+          this.tasks.push({
+            id: String(c.id), name: c.title || '(Untitled)',
+            start: c.startDate || today, end: c.endDate || today,
+            pct: c.pctComplete || 0,
+            color: c.taskColor || t.taskColor || '#4f46e5',
+            type: cType, parent: String(t.id), expanded: true,
+            notes: c.notes || '',
+            _isBoard: false, _boardId: String(b.id),
+            _status: c.status || 'todo', _priority: c.priority || 'Medium',
+            _taskType: c.taskType || '', _desc: c.desc || '',
+            _parentId: String(t.id), _sortOrder: c.sortOrder || 0
+          });
+        }
+      }
+    }
+    this.applyLocalExpandState();
+  }
+
+  getById(id) {
+    for (const t of this.tasks) { if (String(t.id) === String(id)) return t; }
+    return null;
+  }
+
+  getVisible() {
+    const collapsed = {};
+    for (const t of this.tasks) {
+      if (t.type === 'group' && !t.expanded) collapsed[t.id] = true;
+    }
+    const out = [];
+    for (const t of this.tasks) {
+      let hide = false, pid = t.parent;
+      while (pid) {
+        if (collapsed[pid]) { hide = true; break; }
+        const par = this.getById(pid);
+        pid = par ? par.parent : 0;
+      }
+      if (!hide) out.push(t);
+    }
+    return out;
+  }
+
+  getDepth(t) {
+    let d = 0, pid = t.parent;
+    while (pid) { d++; const p = this.getById(pid); pid = p ? p.parent : 0; }
+    return d;
+  }
+
+  getDbParentId(t) {
+    if (!t.parent || t.parent === 0) return '';
+    const p = String(t.parent);
+    return p.startsWith('b-') ? '' : p;
+  }
+
+  buildPayload(t, overrides) {
+    return {
+      id: String(t.id),
+      boardId: overrides.boardId || t._boardId || '',
+      title: overrides.title !== undefined ? overrides.title : t.name,
+      desc: t._desc || '',
+      priority: overrides.priority || t._priority || 'Medium',
+      status: overrides.status || t._status || 'todo',
+      startDate: overrides.start || t.start,
+      endDate: overrides.end || t.end,
+      startTime: '', endTime: '',
+      pctComplete: overrides.pct !== undefined ? overrides.pct : t.pct,
+      taskColor: overrides.color || t.color,
+      taskType: t._taskType || '',
+      parentId: overrides.parentId !== undefined ? overrides.parentId : this.getDbParentId(t),
+      notes: overrides.notes !== undefined ? overrides.notes : (t.notes || ''),
+      sortOrder: t._sortOrder || 0
+    };
+  }
+
+  applyLocalExpandState() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('ganttExpandState') || '{}');
+      for (const t of this.tasks) {
+        if (t._isBoard && saved.hasOwnProperty(t.id)) t.expanded = saved[t.id];
+      }
+    } catch (e) {}
+  }
+
+  saveLocalExpandState() {
+    const state = {};
+    for (const t of this.tasks) {
+      if (t._isBoard) state[t.id] = t.expanded;
+    }
+    try { localStorage.setItem('ganttExpandState', JSON.stringify(state)); } catch (e) {}
+  }
+}
+
+// ── Timeline ──────────────────────────────────────────────
+class Timeline {
+  constructor() {
+    this.zoom = 'day';
+    this.viewStart = null;
+  }
+
+  getCW() { return CW[this.zoom]; }
+
+  initVS(tasks) {
+    let earliest = null;
+    for (const t of tasks) {
+      const d = parseDate(t.start);
+      if (!earliest || d < earliest) earliest = d;
+    }
+    if (!earliest) earliest = new Date();
+    this.viewStart = new Date(earliest.getFullYear(), earliest.getMonth(), 1);
+  }
+
+  buildCols(tasks) {
+    if (!this.viewStart) this.initVS(tasks);
+    const cw = this.getCW();
+    const rpw = (document.getElementById('right-pane') || {}).offsetWidth || 800;
+    let latestEnd = this.viewStart;
+    for (const t of tasks) {
+      const e = parseDate(t.end);
+      if (e > latestEnd) latestEnd = e;
+    }
+    const dataSpan = daysBetween(this.viewStart, latestEnd) + 30;
+    const viewSpan = Math.ceil(rpw / cw) + 60;
+    const nd = Math.max(dataSpan, viewSpan);
+    const cols = [];
+    for (let i = 0; i < nd; i++) {
+      const d = addDays(this.viewStart, i), wd = d.getDay();
+      cols.push({ d, we: wd === 0 || wd === 6, ms: d.getDate() === 1, ml: MABBR[d.getMonth()] + ' ' + d.getFullYear() });
+    }
+    return cols;
+  }
+
+  colLbl(col) {
+    if (this.zoom === 'day') return pad(col.d.getDate());
+    if (this.zoom === 'week') return col.d.getDay() === 1 ? 'W' + this.isoWeek(col.d) + (this.isoWeek(col.d) === 1 ? ' ' + col.d.getFullYear() : '') : '';
+    return '';
+  }
+
+  isoWeek(d) {
+    const dt = new Date(d.getTime()); dt.setHours(0,0,0,0);
+    dt.setDate(dt.getDate() + 3 - (dt.getDay() + 6) % 7);
+    const w1 = new Date(dt.getFullYear(), 0, 4);
+    return 1 + Math.round(((dt.getTime() - w1.getTime()) / 86400000 - 3 + (w1.getDay() + 6) % 7) / 7);
+  }
+
+  dateToX(d) { if (!this.viewStart) return 0; return daysBetween(this.viewStart, d) * this.getCW(); }
+  xToDate(x) { if (!this.viewStart) return new Date(); return addDays(this.viewStart, Math.round(x / this.getCW())); }
+}
+
+// ── GanttRenderer ─────────────────────────────────────────
+class GanttRenderer {
+  constructor(app) { this.app = app; }
+
+  render() {
+    this.renderTable();
+    const rowHeights = [];
+    const tbody = document.getElementById('task-tbody');
+    if (tbody) {
+      for (let i = 0; i < tbody.rows.length; i++) {
+        rowHeights.push(tbody.rows[i].offsetHeight || ROW_H);
+      }
+    }
+    this.renderGantt(rowHeights);
+  }
+
+  renderTable() {
+    const app = this.app;
+    const vis = app.model.getVisible();
+    let html = '';
+    for (let i = 0; i < vis.length; i++) {
+      const t = vis[i], dep = app.model.getDepth(t), ind = dep * 13;
+      const arrow = t.type === 'group'
+        ? '<span class="xarrow" data-xid="' + t.id + '">' + (t.expanded ? '&#9660;' : '&#9658;') + '</span>'
+        : '<span style="display:inline-block;width:11px;"></span>';
+      const sel = (app.selectedId === t.id) ? ' sel-row' : '';
+
+      let daysLbl = '';
+      if (t.type === 'milestone') { daysLbl = '&mdash;'; }
+      else { daysLbl = (daysBetween(parseDate(t.start), parseDate(t.end)) + 1) + 'd'; }
+
+      const today0 = new Date(); today0.setHours(0,0,0,0);
+      const sDate = parseDate(t.start), eDate = parseDate(t.end);
+      let badge = '';
+      if (t.pct >= 100) badge = '<span class="sbadge sb-done">Done</span>';
+      else if (today0 > eDate) badge = '<span class="sbadge sb-overdue">Overdue</span>';
+      else if (today0 >= sDate) {
+        const totalD = Math.max(daysBetween(sDate, eDate), 1);
+        const elD = daysBetween(sDate, today0);
+        const expPct = Math.round(elD / totalD * 100);
+        badge = t.pct < expPct - 5
+          ? '<span class="sbadge sb-late">Late</span>'
+          : '<span class="sbadge sb-progress">' + (t.type === 'group' ? 'Active' : 'In Progress') + '</span>';
+      } else badge = '<span class="sbadge sb-upcoming">Upcoming</span>';
+
+      const showActions = !t._isBoard;
+      const actHtml = showActions
+        ? '<button class="tbl-btn" data-eid="' + t.id + '">&#9998;</button><button class="tbl-btn" data-did="' + t.id + '">&#10005;</button>'
+        : '';
+
+      html += '<tr class="trow' + sel + '" data-tid="' + t.id + '">'
+        + '<td class="td-name" style="padding-left:' + (6 + ind) + 'px"><span class="cdot" style="background:' + t.color + '"></span>' + arrow + htmlEsc(t.name) + '</td>'
+        + '<td class="td-date">' + (t.type === 'milestone' ? '&#9670; ' + t.start : t.start) + '</td>'
+        + '<td class="td-date">' + (t.type === 'milestone' ? '' : t.end) + '</td>'
+        + '<td class="td-pct">' + t.pct + '%</td>'
+        + '<td class="td-days">' + daysLbl + '</td>'
+        + '<td>' + badge + '</td>'
+        + '<td class="td-act">' + actHtml + '</td>'
+        + '</tr>';
+    }
+    document.getElementById('task-tbody').innerHTML = html;
+
+    // Bind events
+    const tbody = document.getElementById('task-tbody');
+    for (const row of tbody.rows) {
+      const tid = row.getAttribute('data-tid');
+      row.addEventListener('click', (e) => {
+        const tgt = e.target;
+        if (tgt.getAttribute('data-xid') || tgt.getAttribute('data-eid') || tgt.getAttribute('data-did')) return;
+        this.selTask(tid);
+      });
+    }
+    for (const el of tbody.querySelectorAll('[data-xid]')) {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const t = app.model.getById(el.getAttribute('data-xid'));
+        if (t) {
+          t.expanded = !t.expanded;
+          this.render();
+          if (t._isBoard) {
+            app.model.saveLocalExpandState();
+          } else {
+            app.persist('toggleExpand', { id: t.id, isExpanded: t.expanded });
+          }
+        }
+      });
+    }
+    for (const btn of tbody.querySelectorAll('[data-eid]')) {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        app.editor.open(btn.getAttribute('data-eid'));
+      });
+    }
+    for (const btn of tbody.querySelectorAll('[data-did]')) {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        app.editor.delTask(btn.getAttribute('data-did'));
+      });
+    }
+
+    // Auto-widen pane if content overflows
+    if (app.layout.applyWidth) {
+      setTimeout(() => {
+        const li = document.getElementById('left-inner');
+        if (li && li.scrollWidth > li.offsetWidth + 2) {
+          app.layout.applyWidth(Math.min(app.layout.leftW + (li.scrollWidth - li.offsetWidth) + 20, 700));
+        }
+      }, 0);
+    }
+  }
+
+  selTask(tid) {
+    this.app.selectedId = tid;
+    this.renderTable();
+    const t = this.app.model.getById(tid);
+    if (t) {
+      const ri = document.getElementById('right-inner');
+      if (ri) ri.scrollLeft = Math.max(0, this.app.timeline.dateToX(parseDate(t.start)) - 80);
+    }
+  }
+
+  renderGantt(rowHeights) {
+    const app = this.app;
+    const cols = app.timeline.buildCols(app.model.tasks);
+    const vis = app.model.getVisible();
+    const cw = app.timeline.getCW();
+    const rh = [], ry = [];
+    let totalH = 0;
+    for (let i = 0; i < vis.length; i++) {
+      const h = (rowHeights && rowHeights[i]) ? rowHeights[i] : ROW_H;
+      rh.push(h); ry.push(totalH); totalH += h;
+    }
+    const totalW = cols.length * cw;
+
+    // Month spans
+    const mspans = [];
+    let cm = null, sc = 0;
+    for (const col of cols) {
+      if (col.ml !== cm) { if (cm !== null) mspans.push({ l: cm, c: sc }); cm = col.ml; sc = 1; } else sc++;
+    }
+    if (cm !== null) mspans.push({ l: cm, c: sc });
+
+    let hh = '<table style="width:' + totalW + 'px;table-layout:fixed;border-collapse:collapse;">';
+    hh += '<tr>';
+    for (const ms of mspans) hh += '<th colspan="' + ms.c + '" class="mth-th" style="width:' + (ms.c * cw) + 'px">' + ms.l + '</th>';
+    hh += '</tr>';
+
+    hh += '<tr>';
+    if (app.timeline.zoom === 'week') {
+      let wi = 0;
+      while (wi < cols.length) {
+        let count = 0, j = wi;
+        while (j < cols.length) { count++; j++; if (j < cols.length && cols[j].d.getDay() === 1) break; }
+        const wn = app.timeline.isoWeek(cols[wi].d);
+        hh += '<th colspan="' + count + '" style="width:' + (count * cw) + 'px;font-size:0.70rem;font-weight:700;color:#4f46e5;border-right:1px solid #d0d0e8;text-align:center;">W' + wn + (wn === 1 ? ' ' + cols[wi].d.getFullYear() : '') + '</th>';
+        wi = j;
+      }
+    } else if (app.timeline.zoom === 'day') {
+      for (const col of cols) hh += '<th style="width:' + cw + 'px">' + (app.timeline.colLbl(col) || '&nbsp;') + '</th>';
+    } else {
+      hh += '<th colspan="' + cols.length + '" style="width:' + totalW + 'px;">&nbsp;</th>';
+    }
+    hh += '</tr></table>';
+    document.getElementById('gantt-hdr').innerHTML = hh;
+
+    // Grid
+    const today = new Date(); today.setHours(0,0,0,0);
+    const todayS = fmtDate(today);
+    let bh = '<table style="width:' + totalW + 'px;table-layout:fixed;border-collapse:collapse;">';
+    for (let ri2 = 0; ri2 < vis.length; ri2++) {
+      bh += '<tr style="height:' + rh[ri2] + 'px;">';
+      for (const col of cols) {
+        let cls = '';
+        const ds = fmtDate(col.d);
+        if (col.we) cls = ' class="wknd"';
+        else if (ds === todayS) cls = ' class="tdcol"';
+        bh += '<td' + cls + ' style="width:' + cw + 'px;height:' + rh[ri2] + 'px;"></td>';
+      }
+      bh += '</tr>';
+    }
+    bh += '</table>';
+
+    const gb = document.getElementById('gantt-body');
+    gb.innerHTML = bh;
+    gb.style.width = totalW + 'px';
+    gb.style.minHeight = Math.max(totalH, 200) + 'px';
+    gb.style.position = 'relative';
+
+    const layer = document.createElement('div');
+    layer.style.cssText = 'position:absolute;top:0;left:0;width:' + totalW + 'px;height:' + Math.max(totalH, 200) + 'px;';
+    gb.appendChild(layer);
+
+    for (let ri2 = 0; ri2 < vis.length; ri2++) this.drawBar(layer, vis[ri2], ry[ri2], cw, rh[ri2]);
+
+    // Today line
+    const tx = app.timeline.dateToX(today);
+    if (tx >= 0 && tx <= totalW) {
+      const tl = document.createElement('div'); tl.className = 'tdline';
+      tl.style.left = tx + 'px'; tl.style.top = '0'; tl.style.height = Math.max(totalH, 200) + 'px';
+      const td2 = document.createElement('div'); td2.className = 'tdot';
+      tl.appendChild(td2);
+      layer.appendChild(tl);
+    }
+  }
+
+  drawBar(layer, t, y, cw, rowH) {
+    const app = this.app;
+    const tl = app.timeline;
+    rowH = rowH || ROW_H;
+    const PAD = 6;
+    const BH = Math.max(10, rowH - PAD * 2);
+    const BT = PAD;
+
+    if (t.type === 'milestone') {
+      const MS = 20;
+      const x = tl.dateToX(parseDate(t.start));
+      const w2 = document.createElement('div'); w2.className = 'ms-wrap';
+      w2.style.left = (x - Math.floor(MS / 2)) + 'px';
+      w2.style.top = (y + Math.floor((rowH - MS) / 2)) + 'px';
+      const msColor = t.pct > 0 ? lightenColor(t.color, 0.45) : t.color;
+      const inn = document.createElement('div'); inn.className = 'ms-inner';
+      inn.style.background = msColor;
+      inn.style.border = '2px solid ' + t.color;
+      w2.appendChild(inn);
+      if (!t._isBoard) {
+        w2.addEventListener('mouseover', e => this.showTip(t, e));
+        w2.addEventListener('mousemove', e => this.movTip(e));
+        w2.addEventListener('mouseout', () => this.hidTip());
+        w2.addEventListener('click', () => app.editor.open(t.id));
+      }
+      layer.appendChild(w2);
+      return;
+    }
+
+    const x1 = tl.dateToX(parseDate(t.start));
+    const x2 = tl.dateToX(addDays(parseDate(t.end), 1));
+    const w = Math.max(x2 - x1, cw);
+    const isG = (t.type === 'group');
+    const barH = BH, barTop = BT;
+
+    const wrap = document.createElement('div'); wrap.className = 'gbar-wrap';
+    wrap.style.cssText = 'position:absolute;left:' + x1 + 'px;top:' + y + 'px;width:' + w + 'px;height:' + rowH + 'px;';
+
+    const bar = document.createElement('div'); bar.className = 'gbar';
+    bar.style.cssText = 'position:absolute;left:0;background:' + t.color + ';top:' + barTop + 'px;height:' + barH + 'px;width:' + w + 'px;overflow:visible;';
+    if (isG) bar.style.borderRadius = '3px';
+
+    if (t.pct > 0) {
+      const pf = document.createElement('div'); pf.className = 'gbar-pct';
+      pf.style.width = clamp(t.pct, 0, 100) + '%';
+      pf.style.background = lightenColor(t.color, 0.45);
+      if (isG) pf.style.borderRadius = '3px 0 0 3px';
+      bar.appendChild(pf);
+    }
+
+    if (isG) {
+      const tlEl = document.createElement('div'); tlEl.className = 'grp-tab-l'; tlEl.style.borderTopColor = t.color;
+      const trEl = document.createElement('div'); trEl.className = 'grp-tab-r'; trEl.style.borderTopColor = t.color;
+      bar.appendChild(tlEl); bar.appendChild(trEl);
+      if (t._isBoard) {
+        const lbl = document.createElement('div'); lbl.className = 'gbar-lbl';
+        lbl.style.lineHeight = barH + 'px';
+        lbl.style.color = contrastColor(t.color);
+        lbl.textContent = t.name;
+        bar.appendChild(lbl);
+      }
+    } else {
+      const lbl = document.createElement('div'); lbl.className = 'gbar-lbl';
+      lbl.style.lineHeight = barH + 'px';
+      lbl.style.color = contrastColor(t.color);
+      lbl.textContent = t.name;
+      bar.appendChild(lbl);
+    }
+
+    if (!t._isBoard) {
+      const hl = document.createElement('div'); hl.className = 'rhl';
+      const hr = document.createElement('div'); hr.className = 'rhr';
+      bar.appendChild(hl); bar.appendChild(hr);
+    }
+
+    wrap.appendChild(bar);
+    layer.appendChild(wrap);
+
+    if (t._isBoard) { bar.style.cursor = 'default'; return; }
+
+    // Tooltip
+    bar.addEventListener('mouseover', e => this.showTip(t, e));
+    bar.addEventListener('mousemove', e => this.movTip(e));
+    bar.addEventListener('mouseout', () => this.hidTip());
+
+    // Drag to move
+    const THRESH = 4;
+    const renderer = this;
+    bar.addEventListener('mousedown', function(e) {
+      if (e.target.className === 'rhl' || e.target.className === 'rhr') return;
+      if (e.button !== 0) return;
+      e.preventDefault();
+      const dsx = e.clientX, dol = parseInt(wrap.style.left, 10);
+      let dmv = false;
+      const os = t.start, oe = t.end;
+      function mv(e2) {
+        const dx = e2.clientX - dsx;
+        if (!dmv && Math.abs(dx) < THRESH) return;
+        dmv = true;
+        wrap.style.left = (dol + dx) + 'px';
+      }
+      function up(e2) {
+        document.removeEventListener('mousemove', mv, true);
+        document.removeEventListener('mouseup', up, true);
+        if (!dmv) { app.editor.open(t.id); return; }
+        const ns = tl.xToDate(dol + (e2.clientX - dsx));
+        const dur = daysBetween(parseDate(os), parseDate(oe));
+        t.start = fmtDate(ns);
+        t.end = fmtDate(addDays(ns, dur));
+        app.persist('updateTask', app.model.buildPayload(t, { start: t.start, end: t.end }));
+        renderer.render();
+      }
+      document.addEventListener('mousemove', mv, true);
+      document.addEventListener('mouseup', up, true);
+    });
+
+    // Left resize
+    const hlEl = bar.querySelector('.rhl');
+    if (hlEl) hlEl.addEventListener('mousedown', function(e) {
+      if (e.button !== 0) return;
+      e.stopPropagation(); e.preventDefault();
+      const sx = e.clientX, ow = parseInt(bar.style.width, 10), ol = parseInt(wrap.style.left, 10);
+      function mv(e2) {
+        const dx = e2.clientX - sx, nw = ow - dx, nl = ol + dx;
+        if (nw < tl.getCW()) return;
+        wrap.style.left = nl + 'px'; bar.style.width = nw + 'px'; wrap.style.width = nw + 'px';
+      }
+      function up(e2) {
+        document.removeEventListener('mousemove', mv, true);
+        document.removeEventListener('mouseup', up, true);
+        t.start = fmtDate(tl.xToDate(ol + (e2.clientX - sx)));
+        app.persist('updateTask', app.model.buildPayload(t, { start: t.start }));
+        renderer.render();
+      }
+      document.addEventListener('mousemove', mv, true);
+      document.addEventListener('mouseup', up, true);
+    });
+
+    // Right resize
+    const hrEl = bar.querySelector('.rhr');
+    if (hrEl) hrEl.addEventListener('mousedown', function(e) {
+      if (e.button !== 0) return;
+      e.stopPropagation(); e.preventDefault();
+      const sx = e.clientX, ow = parseInt(bar.style.width, 10), ol = parseInt(wrap.style.left, 10);
+      function mv(e2) {
+        const nw = Math.max(ow + (e2.clientX - sx), tl.getCW());
+        bar.style.width = nw + 'px'; wrap.style.width = nw + 'px';
+      }
+      function up(e2) {
+        document.removeEventListener('mousemove', mv, true);
+        document.removeEventListener('mouseup', up, true);
+        const nw = Math.max(ow + (e2.clientX - sx), tl.getCW());
+        t.end = fmtDate(tl.xToDate(ol + nw - tl.getCW()));
+        app.persist('updateTask', app.model.buildPayload(t, { end: t.end }));
+        renderer.render();
+      }
+      document.addEventListener('mousemove', mv, true);
+      document.addEventListener('mouseup', up, true);
+    });
+  }
+
+  // ── Tooltip ──────────────────────────────────────────
+  showTip(t, e) {
+    const tip = document.getElementById('gtip');
+    const dur = daysBetween(parseDate(t.start), parseDate(t.end)) + 1;
+    const pctBar = '<div style="margin-top:5px;background:#ffffff33;border-radius:3px;height:6px;width:140px;">'
+      + '<div style="background:' + lightenColor(t.color, 0.5) + ';width:' + clamp(t.pct, 0, 100) + '%;height:6px;border-radius:3px;"></div></div>';
+    tip.innerHTML = '<strong>' + htmlEsc(t.name) + '</strong>'
+      + '<div style="margin-top:3px;font-size:0.78rem;opacity:0.85;">' + t.start + (t.type !== 'milestone' ? ' to ' + t.end : '') + '</div>'
+      + '<div style="margin-top:2px;font-size:0.78rem;opacity:0.85;">' + dur + ' day' + (dur !== 1 ? 's' : '') + '</div>'
+      + '<div style="margin-top:4px;font-weight:700;font-size:0.82rem;">' + t.pct + '% complete</div>'
+      + pctBar;
+    tip.style.display = 'block';
+    this.movTip(e);
+  }
+
+  movTip(e) { const tip = document.getElementById('gtip'); tip.style.left = (e.clientX + 14) + 'px'; tip.style.top = (e.clientY - 38) + 'px'; }
+  hidTip() { document.getElementById('gtip').style.display = 'none'; }
+}
+
+// ── GanttEditor ───────────────────────────────────────────
+class GanttEditor {
+  constructor(app) {
+    this.app = app;
+    this.selColor = COLORS[0];
+    this._bindModalButtons();
+  }
+
+  open(tid) {
+    const app = this.app;
+    app.selectedId = tid || null;
+    const t = tid ? app.model.getById(tid) : null;
+    document.getElementById('modal-title').textContent = t ? 'Edit Task' : 'New Task';
+    document.getElementById('m-name').value = t ? t.name : '';
+    document.getElementById('m-start').value = t ? t.start : fmtDate(new Date());
+    document.getElementById('m-end').value = t ? t.end : fmtDate(addDays(new Date(), 7));
+    document.getElementById('m-pct').value = t ? String(t.pct) : '0';
+    document.getElementById('m-notes').value = t ? (t.notes || '') : '';
+    document.getElementById('m-priority').value = t ? (t._priority || 'Medium') : 'Medium';
+    this.selColor = t ? t.color : COLORS[0];
+    this._buildBoardOpts(t ? t._boardId : (app.model._boards.length ? app.model._boards[0].id : ''));
+    this._buildStatusOpts(t ? (t._status || 'todo') : 'todo');
+    this._buildParOpts(tid);
+    document.getElementById('m-parent').value = t ? String(app.model.getDbParentId(t) || 0) : '0';
+    this._renderSwatch();
+    document.getElementById('m-delete').style.display = t ? '' : 'none';
+    document.getElementById('modal-ov').style.display = 'block';
+    setTimeout(() => document.getElementById('m-name').focus(), 60);
+  }
+
+  close() {
+    document.getElementById('modal-ov').style.display = 'none';
+  }
+
+  delTask(tid) {
+    const app = this.app;
+    const tasks = app.model.tasks;
+    const kill = [String(tid)];
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const t of tasks) {
+        if (kill.indexOf(String(t.id)) < 0 && kill.indexOf(String(t.parent)) >= 0 && !t._isBoard) {
+          kill.push(String(t.id));
+          changed = true;
+        }
+      }
+    }
+    app.model.tasks = tasks.filter(t => kill.indexOf(String(t.id)) < 0);
+    app.persist('deleteTask', { id: String(tid) });
+    if (app.selectedId === tid) app.selectedId = null;
+    app.renderer.render();
+  }
+
+  _buildBoardOpts(selId) {
+    const sel = document.getElementById('m-board');
+    sel.innerHTML = '';
+    for (const b of this.app.model._boards) {
+      const opt = document.createElement('option');
+      opt.value = String(b.id);
+      opt.textContent = b.name;
+      if (String(b.id) === String(selId)) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  }
+
+  _buildStatusOpts(selId) {
+    const sel = document.getElementById('m-status');
+    sel.innerHTML = '';
+    for (const sc of STATUS_COLS) {
+      const opt = document.createElement('option');
+      opt.value = sc.id;
+      opt.textContent = sc.label;
+      if (sc.id === selId) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  }
+
+  _buildParOpts(exId) {
+    const sel = document.getElementById('m-parent');
+    sel.innerHTML = '<option value="0">(None)</option>';
+    for (const t of this.app.model.tasks) {
+      if (t._isBoard) continue;
+      if (String(t.id) === String(exId)) continue;
+      if (t.type === 'milestone') continue;
+      const opt = document.createElement('option');
+      opt.value = String(t.id);
+      opt.textContent = t.name;
+      sel.appendChild(opt);
+    }
+  }
+
+  _renderSwatch() {
+    const row = document.getElementById('m-colors'); row.innerHTML = '';
+    for (const c of COLORS) {
+      const s = document.createElement('span');
+      s.className = 'cswatch' + (c === this.selColor ? ' on' : '');
+      s.style.background = c;
+      s.addEventListener('click', () => { this.selColor = c; this._renderSwatch(); });
+      row.appendChild(s);
+    }
+  }
+
+  _bindModalButtons() {
+    const editor = this;
+    const app = this.app;
+
+    document.getElementById('m-cancel').addEventListener('click', () => editor.close());
+    document.getElementById('modal-ov').addEventListener('click', function(e) {
+      if (e.target === document.getElementById('modal-ov')) editor.close();
+    });
+
+    document.getElementById('m-save').addEventListener('click', function() {
+      const name = (document.getElementById('m-name').value || '').trim() || '(Unnamed)';
+      const start = document.getElementById('m-start').value;
+      const end = document.getElementById('m-end').value;
+      let pct = parseInt(document.getElementById('m-pct').value, 10) || 0;
+      pct = clamp(pct, 0, 100);
+      const boardId = document.getElementById('m-board').value;
+      const status = document.getElementById('m-status').value;
+      const priority = document.getElementById('m-priority').value;
+      const parentVal = document.getElementById('m-parent').value;
+      const notes = (document.getElementById('m-notes').value || '').trim();
+
+      if (!start || !/^\d{4}-\d{2}-\d{2}$/.test(start)) { alert('Enter a valid start date'); return; }
+      if (!end || !/^\d{4}-\d{2}-\d{2}$/.test(end)) { alert('Enter a valid end date'); return; }
+      if (end < start) { alert('End must be on or after start'); return; }
+
+      editor.close();
+
+      if (app.selectedId) {
+        const t = app.model.getById(app.selectedId);
+        if (t && !t._isBoard) {
+          t.name = name; t.start = start; t.end = end; t.pct = pct;
+          t.color = editor.selColor; t.notes = notes;
+          t._status = status; t._priority = priority;
+          const dbParent = parentVal && parentVal !== '0' ? parentVal : '';
+          app.persist('updateTask', app.model.buildPayload(t, {
+            title: name, start, end, pct, color: editor.selColor, notes, status, priority,
+            boardId, parentId: dbParent
+          }));
+        }
+      } else {
+        app.persist('addTask', {
+          boardId, title: name, desc: '', priority, status,
+          startDate: start, endDate: end, startTime: '', endTime: '',
+          pctComplete: pct, taskColor: editor.selColor, taskType: '',
+          parentId: parentVal && parentVal !== '0' ? parentVal : '',
+          notes
+        });
+      }
+      app.renderer.render();
+    });
+
+    document.getElementById('m-delete').addEventListener('click', function() {
+      if (!app.selectedId) return;
+      if (!confirm('Delete this task and its subtasks?')) return;
+      editor.close();
+      editor.delTask(app.selectedId);
+    });
+  }
+}
+
+// ── LayoutManager ─────────────────────────────────────────
+class LayoutManager {
+  constructor(app) {
+    this.app = app;
+    this.leftW = 480;
+    this._scrollLock = false;
+    this.applyWidth = null;
+    this._initResize();
+  }
+
+  initScrollSync() {
+    const li = document.getElementById('left-inner');
+    const ri = document.getElementById('right-inner');
+    const gh = document.getElementById('gantt-hdr');
+    if (!li || !ri) return;
+    li.addEventListener('scroll', () => {
+      if (this._scrollLock) return;
+      this._scrollLock = true; ri.scrollTop = li.scrollTop; this._scrollLock = false;
+    });
+    ri.addEventListener('scroll', () => {
+      if (this._scrollLock) return;
+      this._scrollLock = true;
+      li.scrollTop = ri.scrollTop;
+      if (gh) gh.scrollLeft = ri.scrollLeft;
+      this._scrollLock = false;
+    });
+  }
+
+  _initResize() {
+    const h = document.getElementById('resize-hdl');
+    const layout = this;
+
+    this.applyWidth = (nw) => {
+      layout.leftW = nw;
+      document.getElementById('left-pane').style.width = nw + 'px';
+      document.getElementById('right-pane').style.left = (nw + 2) + 'px';
+      h.style.left = (nw - 6) + 'px';
+    };
+    h.style.left = (this.leftW - 6) + 'px';
+
+    h.addEventListener('mousedown', (e) => {
+      const sx = e.clientX, sw = layout.leftW;
+      e.preventDefault();
+      const minW = 220;
+      function mv(e2) { layout.applyWidth(clamp(sw + (e2.clientX - sx), minW, 700)); layout.app.renderer.render(); }
+      function up(e2) {
+        document.removeEventListener('mousemove', mv, true);
+        document.removeEventListener('mouseup', up, true);
+        layout.applyWidth(clamp(sw + (e2.clientX - sx), minW, 700));
+        try { localStorage.setItem('ganttLeftW', String(layout.leftW)); } catch(ex){}
+        layout.app.renderer.render();
+      }
+      document.addEventListener('mousemove', mv, true);
+      document.addEventListener('mouseup', up, true);
+    });
+  }
+
+  loadLocalPrefs() {
+    try {
+      const lw = parseInt(localStorage.getItem('ganttLeftW'), 10);
+      if (lw > 0) this.applyWidth(clamp(lw, 220, 700));
+      const theme = localStorage.getItem('kanbanTheme') || 'dark';
+      this.app.darkMode = (theme === 'dark');
+      if (this.app.darkMode) document.body.classList.add('dark');
+    } catch (e) {}
+  }
+}
+
+// ── GanttApp ──────────────────────────────────────────────
+class GanttApp {
+  constructor() {
+    this.darkMode = false;
+    this.selectedId = null;
+    this._pendingCommand = null;
+    this.bridge = new ParentBridge();
+
+    this.model = new GanttModel();
+    this.timeline = new Timeline();
+    this.layout = new LayoutManager(this);
+    this.renderer = new GanttRenderer(this);
+    this.editor = new GanttEditor(this);
+
+    this._exposeGlobals();
+    this.layout.loadLocalPrefs();
+    this.layout.initScrollSync();
+
+    if (!this.bridge.inIframe) {
+      setTimeout(() => this.renderer.render(), 0);
+    }
+  }
+
+  persist(action, payload) {
+    const json = JSON.stringify({ action, payload });
+    if (this.bridge.inIframe && window.parent && window.parent.setPendingCommand) {
+      window.parent.setPendingCommand(json);
+    } else {
+      this._pendingCommand = json;
+    }
+    this.bridge.setStatus('Saved');
+  }
+
+  _exposeGlobals() {
+    const app = this;
+    window.loadData = json => {
+      try {
+        const d = typeof json === 'string' ? JSON.parse(json) : json;
+        app.model.load(d.boards || [], d.tasks || []);
+        app.model.build();
+        app.timeline.viewStart = null;
+        app.timeline.initVS(app.model.tasks);
+      } catch (e) {
+        app.bridge.setStatus('Load error: ' + e.message, true);
+        return;
+      }
+      requestAnimationFrame(() => app.renderer.render());
+    };
+
+    window.setZoom = z => {
+      if (!CW[z]) return;
+      const ri = document.getElementById('right-inner');
+      const oldCw = app.timeline.getCW();
+      const scrollDate = (ri && app.timeline.viewStart) ? addDays(app.timeline.viewStart, Math.round(ri.scrollLeft / oldCw)) : null;
+      app.timeline.zoom = z;
+      app.renderer.render();
+      if (ri && scrollDate && app.timeline.viewStart) {
+        ri.scrollLeft = daysBetween(app.timeline.viewStart, scrollDate) * app.timeline.getCW();
+      }
+    };
+
+    window.scrollPrev = () => {
+      const ri = document.getElementById('right-inner');
+      if (ri) ri.scrollLeft = Math.max(0, ri.scrollLeft - NS[app.timeline.zoom] * app.timeline.getCW());
+    };
+
+    window.scrollNext = () => {
+      const ri = document.getElementById('right-inner');
+      if (ri) ri.scrollLeft += NS[app.timeline.zoom] * app.timeline.getCW();
+    };
+
+    window.scrollToday = () => {
+      const ri = document.getElementById('right-inner');
+      const today = new Date(); today.setHours(0,0,0,0);
+      const rpw = ri ? ri.offsetWidth : 400;
+      if (ri) ri.scrollLeft = Math.max(0, app.timeline.dateToX(today) - Math.round(rpw / 3));
+    };
+
+    window.openAddTask = () => app.editor.open(null);
+
+    window.getPendingCommand = () => app._pendingCommand;
+    window.clearPendingCommand = () => { app._pendingCommand = null; };
+
+    window.setTheme = mode => {
+      app.darkMode = (mode === 'dark');
+      document.body.className = app.darkMode ? 'dark' : '';
+    };
+
+    // Expose openModal for parent frame delegation (ganttAddTask calls frame.contentWindow.openModal)
+    window.openModal = tid => app.editor.open(tid);
+  }
+}
+
+// ── Bootstrap ─────────────────────────────────────────────
+const ganttApp = new GanttApp();
+</script>
+</body>
+</html>
