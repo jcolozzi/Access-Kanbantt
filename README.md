@@ -23,9 +23,9 @@ Access Kanbantt is a Microsoft Access project manager with a modern browser-base
 
 ## Screenshots
 
-![Kanban board screenshot placeholder](https://placehold.co/1200x675/png?text=Kanban+Board+Screenshot)
-![Gantt timeline screenshot placeholder](https://placehold.co/1200x675/png?text=Gantt+Timeline+Screenshot)
-![Dashboard screenshot placeholder](https://placehold.co/1200x675/png?text=Dashboard+Screenshot)
+![Kanban board screenshot placeholder](https://github.com/jcolozzi/Access-Kanbantt/blob/main/images/Kanban.png)
+![Gantt timeline screenshot placeholder](https://github.com/jcolozzi/Access-Kanbantt/blob/main/images/Gantt.png)
+![Dashboard screenshot placeholder](https://github.com/jcolozzi/Access-Kanbantt/blob/main/images/Dashboard.png)
 
 ## Quick Start
 
