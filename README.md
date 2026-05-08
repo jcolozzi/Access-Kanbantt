@@ -35,8 +35,9 @@ Access Kanbantt is a Microsoft Access project manager with a modern browser-base
 ## Quick Start
 
 1. Open `Kanbantt.accdb` in Microsoft Access (Windows).
-2. Open form `frmKanbantt`.
-3. Create a board, then add tasks from Board or Gantt view.
+2. Reconnect the backend file. 
+3. Open form `frmKanbantt`.
+4. Create a board, then add tasks from Board or Gantt view.
 
 ## Repository Highlights
 
